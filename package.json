@@ -1,0 +1,27 @@
+{
+  "name": "elh-word-audio-player",
+  "version": "0.1.1",
+  "description": "Obsidian plugin for playing vocabulary audio from markdown cards.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "release": "npm run build"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "vocabulary",
+    "audio"
+  ],
+  "author": "local",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.23.0",
+    "obsidian": "^1.5.12",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5"
+  }
+}

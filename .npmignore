@@ -1,0 +1,8 @@
+node_modules/
+.git/
+.github/
+.DS_Store
+*.ts
+tsconfig.json
+esbuild.config.mjs
+package-lock.json

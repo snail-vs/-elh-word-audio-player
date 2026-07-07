@@ -1,0 +1,107 @@
+.elh-word-player {
+  --elh-accent: var(--interactive-accent);
+  --elh-border: var(--background-modifier-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+  padding: 12px;
+}
+
+.elh-word-player__toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.elh-word-player__path {
+  min-width: 0;
+}
+
+.elh-word-player__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.elh-word-player__actions button {
+  min-width: 36px;
+  height: 32px;
+  padding: 0 10px;
+}
+
+.elh-word-player__now {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--elh-border);
+}
+
+.elh-word-player__word {
+  overflow: hidden;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.elh-word-player__count {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.elh-word-player__progress {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.elh-word-player audio {
+  width: 100%;
+}
+
+.elh-word-player__content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 4px 32px 0;
+  scroll-behavior: smooth;
+}
+
+.elh-word-player__card {
+  padding: 2px 0;
+}
+
+.elh-word-player__card h2 {
+  display: none;
+}
+
+.elh-word-player__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid var(--elh-border);
+  padding-top: 8px;
+}
+
+.elh-word-player__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.elh-word-player__item.is-active {
+  color: var(--text-on-accent);
+  background: var(--elh-accent);
+}
