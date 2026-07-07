@@ -73,11 +73,78 @@
 }
 
 .elh-word-player__card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   padding: 2px 0;
 }
 
-.elh-word-player__card h2 {
-  display: none;
+.elh-word-player__section {
+  border: 1px solid var(--elh-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--background-secondary);
+}
+
+.elh-word-player__section-title {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.elh-word-player__section-text {
+  color: var(--text-normal);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.elh-word-player__section--meaning {
+  border-left: 3px solid var(--interactive-accent);
+}
+
+.elh-word-player__syllables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.elh-word-player__syllable {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid var(--background-modifier-border-hover);
+  border-radius: 6px;
+  padding: 5px 10px;
+  color: var(--text-normal);
+  background: var(--background-primary);
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.elh-word-player__syllable.is-stressed {
+  border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  font-weight: 800;
+}
+
+.elh-word-player__example {
+  color: var(--text-normal);
+  font-size: 16px;
+  font-style: italic;
+  line-height: 1.7;
+}
+
+.elh-word-player__example-word {
+  border-radius: 4px;
+  padding: 0 3px;
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  font-style: normal;
+  font-weight: 750;
 }
 
 .elh-word-player__list {

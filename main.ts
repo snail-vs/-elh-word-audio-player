@@ -1,7 +1,6 @@
 import {
   App,
   ItemView,
-  MarkdownRenderer,
   Notice,
   Plugin,
   PluginSettingTab,
@@ -20,8 +19,12 @@ interface WordPlayerSettings {
 
 interface WordEntry {
   word: string;
-  markdown: string;
   audioSrc: string;
+  spellingSyllables: string[];
+  stressSyllableIndexes: number[];
+  roots: string;
+  contextMeaning: string;
+  example: string;
   startLine: number;
 }
 
@@ -294,10 +297,8 @@ class WordAudioPlayerView extends ItemView {
     }
 
     this.audioEl.src = entry.audioSrc;
-    const sourceFile = this.getSourceFile();
-    const sourcePath = sourceFile?.path ?? this.plugin.settings.sourceFile;
     const cardEl = this.contentElRef.createDiv({ cls: "elh-word-player__card" });
-    await MarkdownRenderer.renderMarkdown(entry.markdown, cardEl, sourcePath, this);
+    renderWordCard(cardEl, entry);
     this.contentElRef.scrollTo({ top: 0, behavior: "smooth" });
     this.renderList();
   }
@@ -420,8 +421,12 @@ function parseWordEntries(markdown: string): WordEntry[] {
 
     entries.push({
       word: heading,
-      markdown: block,
       audioSrc,
+      spellingSyllables: extractSpellingSyllables(block),
+      stressSyllableIndexes: extractStressSyllableIndexes(block),
+      roots: extractField(block, "词根"),
+      contextMeaning: extractField(block, "语境含义"),
+      example: normalizeExample(extractField(block, "例句")),
       startLine
     });
   });
@@ -432,6 +437,50 @@ function parseWordEntries(markdown: string): WordEntry[] {
 function extractAudioSrc(markdown: string): string | null {
   const audioMatch = markdown.match(/<audio\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/i);
   return audioMatch?.[1] ? normalizeAudioSrc(audioMatch[1]) : null;
+}
+
+function extractField(markdown: string, label: string): string {
+  const escapedLabel = escapeRegExp(label);
+  const fieldMatch = markdown.match(new RegExp(`^\\s*\\*\\*${escapedLabel}\\*\\*\\s*[：:]\\s*(.+?)\\s*$`, "m"));
+  return fieldMatch?.[1]?.trim() ?? "";
+}
+
+function extractSpellingSyllables(markdown: string): string[] {
+  const spelling = extractField(markdown, "拼写音节");
+  const syllableText = spelling.replace(/（.*$/, "").replace(/\(.*$/, "").trim();
+  return syllableText
+    .split("-")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function extractStressSyllableIndexes(markdown: string): number[] {
+  const stressIndexes: number[] = [];
+
+  markdown.split(/\r?\n/).forEach((line) => {
+    const columns = line
+      .split("|")
+      .map((column) => column.trim())
+      .filter(Boolean);
+
+    if (columns.length < 4 || !/^\d+$/.test(columns[0])) return;
+
+    const index = Number.parseInt(columns[0], 10) - 1;
+    const stressColumn = columns[3].replace(/\*/g, "").trim();
+
+    if (stressColumn === "是") {
+      stressIndexes.push(index);
+    }
+  });
+
+  return stressIndexes;
+}
+
+function normalizeExample(example: string): string {
+  return example
+    .replace(/^\*+/, "")
+    .replace(/\*+$/, "")
+    .trim();
 }
 
 function normalizeLoopCount(value: number, fallback: number): number {
@@ -445,4 +494,68 @@ function normalizeAudioSrc(src: string): string {
   }
 
   return src;
+}
+
+function renderWordCard(containerEl: HTMLElement, entry: WordEntry) {
+  containerEl.empty();
+
+  renderSyllables(containerEl, entry);
+  renderFieldSection(containerEl, "词根", entry.roots, "roots");
+  renderFieldSection(containerEl, "语境含义", entry.contextMeaning, "meaning");
+  renderExampleSection(containerEl, entry);
+}
+
+function renderSyllables(containerEl: HTMLElement, entry: WordEntry) {
+  if (entry.spellingSyllables.length === 0) return;
+
+  const sectionEl = createCardSection(containerEl, "拼写音节", "syllables");
+  const chipsEl = sectionEl.createDiv({ cls: "elh-word-player__syllables" });
+
+  entry.spellingSyllables.forEach((syllable, index) => {
+    const chipEl = chipsEl.createSpan({ cls: "elh-word-player__syllable", text: syllable });
+    chipEl.toggleClass("is-stressed", entry.stressSyllableIndexes.includes(index));
+  });
+}
+
+function renderFieldSection(containerEl: HTMLElement, title: string, value: string, modifier: string) {
+  if (!value) return;
+
+  const sectionEl = createCardSection(containerEl, title, modifier);
+  sectionEl.createDiv({ cls: "elh-word-player__section-text", text: value });
+}
+
+function renderExampleSection(containerEl: HTMLElement, entry: WordEntry) {
+  if (!entry.example) return;
+
+  const sectionEl = createCardSection(containerEl, "例句", "example");
+  const exampleEl = sectionEl.createDiv({ cls: "elh-word-player__example" });
+  appendHighlightedText(exampleEl, entry.example, entry.word);
+}
+
+function createCardSection(containerEl: HTMLElement, title: string, modifier: string) {
+  const sectionEl = containerEl.createDiv({
+    cls: `elh-word-player__section elh-word-player__section--${modifier}`
+  });
+  sectionEl.createDiv({ cls: "elh-word-player__section-title", text: title });
+  return sectionEl;
+}
+
+function appendHighlightedText(containerEl: HTMLElement, text: string, word: string) {
+  const pattern = new RegExp(`(${escapeRegExp(word)})`, "gi");
+  const parts = text.split(pattern);
+
+  parts.forEach((part) => {
+    if (!part) return;
+
+    if (part.toLowerCase() === word.toLowerCase()) {
+      containerEl.createSpan({ cls: "elh-word-player__example-word", text: part });
+      return;
+    }
+
+    containerEl.appendText(part);
+  });
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
