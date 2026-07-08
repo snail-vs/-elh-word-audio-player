@@ -117,7 +117,8 @@ export default class WordAudioPlayerPlugin extends Plugin {
     const result = await lookupWordCard(normalizedWord, {
       store: this.wordStore,
       fetchWord: fetchYoudaoWord,
-      generateCard: this.getAiCardGenerator()
+      generateCard: this.getAiCardGenerator(),
+      getAiModel: () => this.settings.aiModel.trim() || undefined
     });
 
     await writeWordCardToVault(
@@ -164,7 +165,7 @@ export default class WordAudioPlayerPlugin extends Plugin {
       const result = await this.lookupAndWriteWordCard(normalizedWord);
       if (!result) return;
 
-      new Notice(`Word card written: ${result.record.word}${result.cacheHit ? " (cache)" : ""}`);
+      new Notice(getLookupResultMessage(result.record.word, result.cacheHit, result.record.source.aiFallbackUsed));
     } catch (error) {
       console.error(error);
       new Notice(`Word lookup failed: ${normalizedWord}`);
@@ -240,6 +241,18 @@ class WordLookupModal extends Modal {
     this.resolveValue(value);
     this.close();
   }
+}
+
+function getLookupResultMessage(word: string, cacheHit: boolean, aiFallbackUsed?: boolean): string {
+  if (cacheHit) {
+    return `${word} written from cache.`;
+  }
+
+  if (aiFallbackUsed) {
+    return `${word} written; AI fallback used.`;
+  }
+
+  return `${word} written.`;
 }
 
 class WordAudioPlayerView extends ItemView {
@@ -362,7 +375,10 @@ class WordAudioPlayerView extends ItemView {
       if (!result) return;
 
       this.lookupInputEl.value = "";
-      this.setLookupState(false, `${result.record.word} written${result.cacheHit ? " from cache" : ""}.`);
+      this.setLookupState(
+        false,
+        getLookupResultMessage(result.record.word, result.cacheHit, result.record.source.aiFallbackUsed)
+      );
     } catch (error) {
       console.error(error);
       this.setLookupState(false, `Lookup failed: ${word}`);

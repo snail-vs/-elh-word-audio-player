@@ -13,6 +13,7 @@ export interface LookupWordCardOptions {
   store: WordLookupRecordStore;
   fetchWord: (word: string) => Promise<WordLookupFetchResult>;
   generateCard?: (fetched: WordLookupFetchResult, context?: string) => Promise<WordCardData>;
+  getAiModel?: () => string | undefined;
   context?: string;
   contextHash?: string;
   now?: () => number;
@@ -36,9 +37,8 @@ export async function lookupWordCard(word: string, options: LookupWordCardOption
   }
 
   const fetched = await options.fetchWord(normalizedWord);
-  const card = options.generateCard
-    ? await options.generateCard(fetched, options.context)
-    : createBaseWordCardFromYoudao(fetched.parsed);
+  const generated = await generateCardWithFallback(fetched, options);
+  const card = generated.card;
   const markdown = serializeWordCardToMarkdown(card, contextHash);
   const timestamp = options.now?.() ?? Date.now();
 
@@ -49,7 +49,11 @@ export async function lookupWordCard(word: string, options: LookupWordCardOption
     card,
     source: {
       youdaoRaw: fetched.raw,
-      youdaoFetchedAt: timestamp
+      youdaoFetchedAt: timestamp,
+      aiModel: generated.aiGenerated ? options.getAiModel?.() : undefined,
+      aiGeneratedAt: generated.aiGenerated ? timestamp : undefined,
+      aiFallbackUsed: generated.aiFallbackUsed || undefined,
+      aiError: generated.aiError
     },
     markdown,
     schemaVersion: WORD_CARD_SCHEMA_VERSION,
@@ -67,4 +71,43 @@ export async function lookupWordCard(word: string, options: LookupWordCardOption
 
 export function getLookupRecordKey(record: Pick<WordLookupRecord, "word" | "contextHash">): string {
   return createWordLookupKey(record.word, record.contextHash);
+}
+
+async function generateCardWithFallback(
+  fetched: WordLookupFetchResult,
+  options: LookupWordCardOptions
+): Promise<{
+  card: WordCardData;
+  aiGenerated: boolean;
+  aiFallbackUsed: boolean;
+  aiError?: string;
+}> {
+  if (!options.generateCard) {
+    return {
+      card: createBaseWordCardFromYoudao(fetched.parsed),
+      aiGenerated: false,
+      aiFallbackUsed: false
+    };
+  }
+
+  try {
+    return {
+      card: await options.generateCard(fetched, options.context),
+      aiGenerated: true,
+      aiFallbackUsed: false
+    };
+  } catch (error) {
+    console.error("AI card generation failed. Falling back to dictionary card.", error);
+
+    return {
+      card: createBaseWordCardFromYoudao(fetched.parsed),
+      aiGenerated: false,
+      aiFallbackUsed: true,
+      aiError: getErrorMessage(error)
+    };
+  }
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

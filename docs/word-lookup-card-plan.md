@@ -24,15 +24,14 @@ Each generated card must include these sections:
 
 1. Spelling syllables.
 2. Pronunciation syllables, including stress marks.
-3. Syllable table with spelling, phonetic syllable, and stress.
-4. Full phonetic transcription.
-5. Basic dictionary explanation from Youdao.
-6. Three core meanings.
-7. Contextual meaning for the current sentence or domain.
-8. Contextual example sentence.
-9. Root or etymology explanation.
-10. Meaning distribution from Youdao `trs-classify`.
-11. Audio player using Youdao dictvoice.
+3. Full phonetic transcription.
+4. Basic dictionary explanation from Youdao.
+5. Three core meanings.
+6. Contextual meaning for the current sentence or domain.
+7. Contextual example sentence.
+8. Root or etymology explanation.
+9. Meaning distribution from Youdao `trs-classify`.
+10. Audio player using Youdao dictvoice.
 
 Example audio URL:
 
@@ -174,17 +173,20 @@ interface MeaningDistributionItem {
 Move toward this structure in small steps:
 
 ```text
+main.ts
+styles.css
 src/
-  main.ts
-  settings.ts
   data/
+    aiCardGenerator.ts
+    markdownCardData.ts
+    markdownSerializer.ts
+    markdownWriter.ts
+    vaultMarkdownWriter.ts
+    wordLookupPipeline.ts
+    wordLookupStore.ts
     wordTypes.ts
     youdaoClient.ts
     youdaoParser.ts
-    indexedDbStore.ts
-    aiCardGenerator.ts
-    markdownSerializer.ts
-    markdownWriter.ts
   playback/
     wordListParser.ts
   view/
@@ -240,57 +242,40 @@ Cache lookup policy:
 Write generated cards with stable block markers so repeated lookups update existing cards instead of duplicating them.
 
 ```md
-<!-- elh-word-card:start maintenance default -->
+<div elh-word-card:start maintenance default>
+<!-- elh-word-card:data <base64url-json> -->
+</div>
 ## maintenance
-
 **拼写音节**：main-te-nance（3 音节）
-**发音音节**：/ˈmeɪn-tə-nəns/（3 音节，对齐）
-
-| 音节 | 拼写 | 音标 | 重读 |
-| :-: | :--: | :--: | :-: |
-| 1 | main- | /ˈmeɪn/ | **是** |
-| 2 | -te- | /tə/ | 否 |
-| 3 | -nance | /nəns/ | 否 |
-
+**发音音节**：/***ˈmeɪn***-tə-nəns/（3 音节，对齐）
 **完整音标**：/ˈmeɪntənəns/
-
 **单词基本解释**：
 - n. 维护，保养；保持，维持；（依法应负担的）生活费，抚养费
-
 **词根**：main-（来自 manu- 手）+ ten-（保持）+ -ance（名词后缀） -> 维持、维护
-
 **核心含义**：
 1. 维护/保养
 2. 保持/维持
 3. 赡养费/抚养费
-
 **语境含义**：在运维/技术语境中主要指系统维护与保养。
-
 **例句**：*Proxmox VE provides a web GUI for simplifying system maintenance tasks like backup and updates.*
-
-**含义分布**：
-| 占比 | 含义 |
-| :-: | :-- |
-| 64.1% | 维护 |
-| 28.4% | 维修 |
-
+**含义分布**：维护 64.1%，维修 28.4%
 **发音**：<audio src="https://dict.youdao.com/dictvoice?type=1&audio=maintenance" controls></audio>
-<!-- elh-word-card:end maintenance default -->
+<div elh-word-card:end maintenance default></div>
 ```
 
-The marker should include the context hash once multiple contexts per word are supported.
+The marker includes the context hash. The hidden `elh-word-card:data` payload stores `schemaVersion`, `contextHash`, and the full `WordCardData`, so IndexedDB can be restored from Markdown without parsing human-facing prose.
 
 ## UI Plan
 
 The side view should contain:
 
 - Word input.
-- Optional context input.
 - Lookup button.
 - Cache status indicator.
 - Error or loading state.
-- Current generated card.
 - Existing playback controls and word list.
+- Optional context input. TODO.
+- Current generated card preview. TODO.
 
 Lookup behavior:
 
@@ -318,10 +303,40 @@ Add settings gradually:
   Default model for card generation.
 - `enableAiGeneration`
   Allows parser-only lookup during development.
+- `aiEndpointUrl`
+  OpenAI-compatible chat completions endpoint.
 
 The first parser and Markdown steps should not require an AI key.
 
-## Execution Plan
+## Current Status
+
+Completed:
+
+- Youdao parser fixture and normalized data types.
+- Markdown serializer with compact human-facing format.
+- Hidden embedded JSON payload in Markdown.
+- Markdown upsert writer with stable block markers.
+- Vault writer for create/update target note.
+- Youdao network client using Obsidian `requestUrl`.
+- Command palette lookup command.
+- Obsidian modal input for command lookup.
+- IndexedDB-backed cache behind `WordLookupRecordStore`.
+- Lookup pipeline with injectable `fetchWord` and `generateCard`.
+- Sidebar lookup UI with word input, Lookup button, loading state, cache-hit status, and automatic list reload.
+- Optional AI generation settings and OpenAI-compatible chat completions client.
+- AI failure fallback to base dictionary cards.
+- Build verification with `npm run build`.
+
+Current known behavior:
+
+- Basic lookup works without AI.
+- AI generation is disabled by default.
+- Cache hit bypasses Youdao and AI.
+- Existing cache records are not regenerated when AI settings change.
+- Existing generated Markdown is replaced by word/context marker instead of duplicated.
+- If AI generation fails after Youdao succeeds, the plugin writes a base dictionary card and records fallback metadata.
+
+## Completed Execution Plan
 
 ### Step 1: Youdao Parser Fixture
 
@@ -339,6 +354,8 @@ Success criteria:
 - Parser extracts meaning distribution without the `全部` aggregate row.
 - Parser produces the dictvoice audio URL.
 
+Status: Done.
+
 ### Step 2: Markdown Serializer
 
 Scope:
@@ -351,6 +368,8 @@ Success criteria:
 - The `maintenance` fixture produces a readable Markdown card.
 - The generated Markdown includes all required sections.
 - The generated Markdown includes stable start and end markers.
+
+Status: Done. The final format is compact and uses `<div elh-word-card:start ...>` / `<div elh-word-card:end ...></div>` markers.
 
 ### Step 3: Markdown Writer
 
@@ -366,6 +385,8 @@ Success criteria:
 - Missing target file is created.
 - Existing unrelated note content is preserved.
 
+Status: Done.
+
 ### Step 4: IndexedDB Store
 
 Scope:
@@ -379,6 +400,8 @@ Success criteria:
 - Second lookup reads the same record from IndexedDB.
 - Failed lookups do not create complete records.
 
+Status: Done for normal success flow. Cache-management actions remain TODO.
+
 ### Step 5: Youdao Network Client
 
 Scope:
@@ -391,6 +414,8 @@ Success criteria:
 - Online lookup works for `maintenance`.
 - Network failure produces a controlled error message.
 - Parser errors include enough context for debugging.
+
+Status: Done for online lookup and controlled top-level failure notice. More granular error states remain TODO.
 
 ### Step 6: AI Card Generator
 
@@ -406,6 +431,8 @@ Success criteria:
 - Invalid AI output is rejected and not cached as complete.
 - Parser-only fallback remains possible for development.
 
+Status: Partial. AI generator skeleton, settings, JSON validation, parser-only fallback, and AI failure fallback are implemented. Real prompt tuning remains TODO.
+
 ### Step 7: Side View Lookup UI
 
 Scope:
@@ -418,6 +445,8 @@ Success criteria:
 - Cached lookup renders without network.
 - New lookup renders after generation.
 - Existing playback controls still work.
+
+Status: Partial. Sidebar word lookup exists and reuses the cache/network/AI pipeline. Context input and immediate rich preview remain TODO.
 
 ### Step 8: Playback Compatibility
 
@@ -432,6 +461,8 @@ Success criteria:
 - Audio playback works from generated cards.
 - Existing cards continue to parse.
 
+Status: Partial. Generated cards appear and audio playback works through `<audio>`. Playback parsing does not yet prefer embedded JSON, so new fields such as full phonetic, core meanings, and meaning distribution are not fully rendered in the side card.
+
 ### Step 9: Verification
 
 Scope:
@@ -443,6 +474,60 @@ Success criteria:
 
 - `npm run build` passes.
 - Lookup, cache hit, Markdown update, and playback all work for `maintenance`.
+
+Status: Partial. `npm run build` passes. Lookup/cache/write/playback have been manually exercised. AI needs real endpoint testing.
+
+## Todo
+
+### P0: Regenerate and Refresh
+
+- Add `forceRefresh?: boolean` to `lookupWordCard`.
+- Add sidebar Refresh button.
+- Add command palette refresh command.
+- Refresh should bypass cache, refetch data, regenerate AI card if enabled, update IndexedDB, and replace the Markdown block.
+
+### P1: Context Input
+
+- Add context textarea to the sidebar.
+- Pass context into `lookupWordCard`.
+- Use stable context hash in cache key and Markdown markers.
+- Include context in AI generation.
+
+### P1: Playback Parser From Embedded JSON
+
+- Update `parseWordEntries` to prefer `extractWordCardBlocks`.
+- Populate side-view entries from `WordCardData`.
+- Preserve old Markdown fallback only where needed.
+
+### P1: Side Card Rendering
+
+- Render full phonetic, basic explanations, core meanings, contextual meaning, example, roots, and meaning distribution in the side view.
+- Keep the view compact and consistent with the Markdown format.
+
+### P2: Cache Management
+
+- Add clear all cache action.
+- Add delete one word cache action.
+- Add recent cached word list if useful.
+- Add schema migration policy.
+
+### P2: AI Prompt Tuning
+
+- Test real model output.
+- Tighten JSON instructions if needed.
+- Validate syllable count alignment and stress indexes.
+- Reduce hallucinated etymology by requiring uncertainty where appropriate.
+
+### P2: Backend API Adapter
+
+- Add a backend-backed `fetchWord` or `generateCard` implementation when backend shape is known.
+- Optionally add a backend-backed `WordLookupRecordStore`.
+- Keep `main.ts` depending only on pipeline interfaces.
+
+### P2: Error Classification
+
+- Distinguish Youdao network failure, empty dictionary result, AI failure, JSON validation failure, IndexedDB failure, and vault write failure.
+- Show concise UI/Notice messages for each.
 
 ## Implementation Rules
 
@@ -456,8 +541,8 @@ Success criteria:
 
 ## Open Decisions
 
-1. Which AI provider and API shape should be used inside the plugin.
-2. Whether multiple contexts for the same word should create multiple cards or update one canonical card.
-3. Whether generated card Markdown should be inserted into the current active note or a fixed configured note.
-4. Whether cache records should expire or persist indefinitely.
-5. Whether Youdao raw JSON should be stored fully or compressed/trimmed for mobile storage.
+1. Whether multiple contexts for the same word should create multiple cards or update one canonical card.
+2. Whether generated card Markdown should ever be inserted into the current active note, or only the fixed configured note.
+3. Whether cache records should expire or persist indefinitely.
+4. Whether Youdao raw JSON should be stored fully or compressed/trimmed for mobile storage.
+5. Whether AI calls should go directly from the plugin or through a backend proxy.

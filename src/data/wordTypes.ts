@@ -25,6 +25,8 @@ export interface WordLookupSource {
   youdaoFetchedAt: number;
   aiModel?: string;
   aiGeneratedAt?: number;
+  aiFallbackUsed?: boolean;
+  aiError?: string;
 }
 
 export interface WordLookupRecord {
