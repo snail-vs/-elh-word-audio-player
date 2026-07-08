@@ -55,3 +55,8 @@ export interface ParsedYoudaoData {
   englishDefinitions: string[];
   etymologyCandidates: string[];
 }
+
+export interface WordLookupFetchResult {
+  parsed: ParsedYoudaoData;
+  raw: unknown;
+}

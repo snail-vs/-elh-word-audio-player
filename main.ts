@@ -11,9 +11,10 @@ import {
   WorkspaceLeaf
 } from "obsidian";
 
-import { createBaseWordCardFromYoudao, serializeWordCardToMarkdown } from "./src/data/markdownSerializer";
 import { writeWordCardToVault } from "./src/data/vaultMarkdownWriter";
-import { lookupYoudaoWord } from "./src/data/youdaoClient";
+import { fetchYoudaoWord } from "./src/data/youdaoClient";
+import { lookupWordCard } from "./src/data/wordLookupPipeline";
+import { IndexedDbWordLookupRecordStore, WordLookupRecordStore } from "./src/data/wordLookupStore";
 
 const VIEW_TYPE_WORD_PLAYER = "elh-word-audio-player-view";
 
@@ -44,9 +45,11 @@ const DEFAULT_SETTINGS: WordPlayerSettings = {
 
 export default class WordAudioPlayerPlugin extends Plugin {
   settings: WordPlayerSettings;
+  private wordStore: WordLookupRecordStore;
 
   async onload() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.wordStore = new IndexedDbWordLookupRecordStore();
 
     this.registerView(
       VIEW_TYPE_WORD_PLAYER,
@@ -73,6 +76,7 @@ export default class WordAudioPlayerPlugin extends Plugin {
   }
 
   onunload() {
+    this.wordStore?.close();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_WORD_PLAYER);
   }
 
@@ -104,12 +108,19 @@ export default class WordAudioPlayerPlugin extends Plugin {
 
     try {
       new Notice(`Looking up ${normalizedWord}...`);
-      const parsed = await lookupYoudaoWord(normalizedWord);
-      const card = createBaseWordCardFromYoudao(parsed);
-      const markdown = serializeWordCardToMarkdown(card);
+      const result = await lookupWordCard(normalizedWord, {
+        store: this.wordStore,
+        fetchWord: fetchYoudaoWord
+      });
 
-      await writeWordCardToVault(this.app, this.settings.targetWordFile, markdown, card.word);
-      new Notice(`Word card written: ${card.word}`);
+      await writeWordCardToVault(
+        this.app,
+        this.settings.targetWordFile,
+        result.record.markdown,
+        result.record.word,
+        result.record.contextHash
+      );
+      new Notice(`Word card written: ${result.record.word}${result.cacheHit ? " (cache)" : ""}`);
       await this.reloadWordPlayerViews();
     } catch (error) {
       console.error(error);
