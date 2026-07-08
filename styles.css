@@ -16,6 +16,34 @@
   align-items: center;
 }
 
+.elh-word-player__lookup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.elh-word-player__lookup input {
+  width: 100%;
+  min-width: 0;
+}
+
+.elh-word-player__lookup button {
+  min-width: 72px;
+  height: 32px;
+  padding: 0 10px;
+}
+
+.elh-word-player__lookup-status {
+  min-height: 16px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .elh-word-player__path {
   min-width: 0;
 }

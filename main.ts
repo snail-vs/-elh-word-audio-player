@@ -101,27 +101,38 @@ export default class WordAudioPlayerPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
+  async lookupAndWriteWordCard(word: string) {
+    const normalizedWord = word.trim();
+    if (!normalizedWord) return null;
+
+    const result = await lookupWordCard(normalizedWord, {
+      store: this.wordStore,
+      fetchWord: fetchYoudaoWord
+    });
+
+    await writeWordCardToVault(
+      this.app,
+      this.settings.targetWordFile,
+      result.record.markdown,
+      result.record.word,
+      result.record.contextHash
+    );
+    await this.reloadWordPlayerViews();
+
+    return result;
+  }
+
   private async lookupWordFromPrompt() {
     const normalizedWord = await new WordLookupModal(this.app).openAndGetValue();
-
     if (!normalizedWord) return;
 
-    try {
-      new Notice(`Looking up ${normalizedWord}...`);
-      const result = await lookupWordCard(normalizedWord, {
-        store: this.wordStore,
-        fetchWord: fetchYoudaoWord
-      });
+    new Notice(`Looking up ${normalizedWord}...`);
 
-      await writeWordCardToVault(
-        this.app,
-        this.settings.targetWordFile,
-        result.record.markdown,
-        result.record.word,
-        result.record.contextHash
-      );
+    try {
+      const result = await this.lookupAndWriteWordCard(normalizedWord);
+      if (!result) return;
+
       new Notice(`Word card written: ${result.record.word}${result.cacheHit ? " (cache)" : ""}`);
-      await this.reloadWordPlayerViews();
     } catch (error) {
       console.error(error);
       new Notice(`Word lookup failed: ${normalizedWord}`);
@@ -212,6 +223,10 @@ class WordAudioPlayerView extends ItemView {
   private wordEl: HTMLElement;
   private countEl: HTMLElement;
   private progressEl: HTMLElement;
+  private lookupInputEl: HTMLInputElement;
+  private lookupButtonEl: HTMLButtonElement;
+  private lookupStatusEl: HTMLElement;
+  private isLookupActive = false;
 
   constructor(leaf: WorkspaceLeaf, plugin: WordAudioPlayerPlugin) {
     super(leaf);
@@ -243,6 +258,29 @@ class WordAudioPlayerView extends ItemView {
     const root = this.containerEl.children[1];
     root.empty();
     root.addClass("elh-word-player");
+
+    const lookupEl = root.createDiv({ cls: "elh-word-player__lookup" });
+    this.lookupInputEl = lookupEl.createEl("input", {
+      attr: {
+        type: "text",
+        placeholder: "Lookup word",
+        "aria-label": "Lookup word"
+      }
+    });
+    this.lookupInputEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        this.lookupFromSidebar();
+      }
+    });
+
+    this.lookupButtonEl = lookupEl.createEl("button", {
+      text: "Lookup",
+      attr: { type: "button" }
+    });
+    this.lookupButtonEl.onclick = () => this.lookupFromSidebar();
+
+    this.lookupStatusEl = root.createDiv({ cls: "elh-word-player__lookup-status" });
 
     const toolbarEl = root.createDiv({ cls: "elh-word-player__toolbar" });
     toolbarEl.createDiv({
@@ -277,6 +315,35 @@ class WordAudioPlayerView extends ItemView {
 
     this.contentElRef = root.createDiv({ cls: "elh-word-player__content" });
     this.listEl = root.createDiv({ cls: "elh-word-player__list" });
+  }
+
+  private async lookupFromSidebar() {
+    if (this.isLookupActive) return;
+
+    const word = this.lookupInputEl.value.trim();
+    if (!word) return;
+
+    this.setLookupState(true, `Looking up ${word}...`);
+
+    try {
+      const result = await this.plugin.lookupAndWriteWordCard(word);
+      if (!result) return;
+
+      this.lookupInputEl.value = "";
+      this.setLookupState(false, `${result.record.word} written${result.cacheHit ? " from cache" : ""}.`);
+    } catch (error) {
+      console.error(error);
+      this.setLookupState(false, `Lookup failed: ${word}`);
+      new Notice(`Word lookup failed: ${word}`);
+    }
+  }
+
+  private setLookupState(isActive: boolean, status: string) {
+    this.isLookupActive = isActive;
+    this.lookupInputEl.disabled = isActive;
+    this.lookupButtonEl.disabled = isActive;
+    this.lookupButtonEl.setText(isActive ? "..." : "Lookup");
+    this.lookupStatusEl.setText(status);
   }
 
   async reload() {
