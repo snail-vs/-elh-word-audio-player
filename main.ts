@@ -110,7 +110,7 @@ export default class WordAudioPlayerPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
-  async lookupAndWriteWordCard(word: string) {
+  async lookupAndWriteWordCard(word: string, options: { forceRefresh?: boolean } = {}) {
     const normalizedWord = word.trim();
     if (!normalizedWord) return null;
 
@@ -118,7 +118,8 @@ export default class WordAudioPlayerPlugin extends Plugin {
       store: this.wordStore,
       fetchWord: fetchYoudaoWord,
       generateCard: this.getAiCardGenerator(),
-      getAiModel: () => this.settings.aiModel.trim() || undefined
+      getAiModel: () => this.settings.aiModel.trim() || undefined,
+      forceRefresh: options.forceRefresh
     });
 
     await writeWordCardToVault(
@@ -243,7 +244,20 @@ class WordLookupModal extends Modal {
   }
 }
 
-function getLookupResultMessage(word: string, cacheHit: boolean, aiFallbackUsed?: boolean): string {
+function getLookupResultMessage(
+  word: string,
+  cacheHit: boolean,
+  aiFallbackUsed?: boolean,
+  forceRefresh?: boolean
+): string {
+  if (forceRefresh && aiFallbackUsed) {
+    return `${word} refreshed; AI fallback used.`;
+  }
+
+  if (forceRefresh) {
+    return `${word} refreshed.`;
+  }
+
   if (cacheHit) {
     return `${word} written from cache.`;
   }
@@ -270,6 +284,7 @@ class WordAudioPlayerView extends ItemView {
   private progressEl: HTMLElement;
   private lookupInputEl: HTMLInputElement;
   private lookupButtonEl: HTMLButtonElement;
+  private refreshButtonEl: HTMLButtonElement;
   private lookupStatusEl: HTMLElement;
   private isLookupActive = false;
 
@@ -325,6 +340,12 @@ class WordAudioPlayerView extends ItemView {
     });
     this.lookupButtonEl.onclick = () => this.lookupFromSidebar();
 
+    this.refreshButtonEl = lookupEl.createEl("button", {
+      text: "Refresh",
+      attr: { type: "button" }
+    });
+    this.refreshButtonEl.onclick = () => this.lookupFromSidebar({ forceRefresh: true });
+
     this.lookupStatusEl = root.createDiv({ cls: "elh-word-player__lookup-status" });
 
     const toolbarEl = root.createDiv({ cls: "elh-word-player__toolbar" });
@@ -362,22 +383,29 @@ class WordAudioPlayerView extends ItemView {
     this.listEl = root.createDiv({ cls: "elh-word-player__list" });
   }
 
-  private async lookupFromSidebar() {
+  private async lookupFromSidebar(options: { forceRefresh?: boolean } = {}) {
     if (this.isLookupActive) return;
 
     const word = this.lookupInputEl.value.trim();
     if (!word) return;
 
-    this.setLookupState(true, `Looking up ${word}...`);
+    this.setLookupState(true, `${options.forceRefresh ? "Refreshing" : "Looking up"} ${word}...`);
 
     try {
-      const result = await this.plugin.lookupAndWriteWordCard(word);
+      const result = await this.plugin.lookupAndWriteWordCard(word, options);
       if (!result) return;
 
-      this.lookupInputEl.value = "";
+      if (!options.forceRefresh) {
+        this.lookupInputEl.value = "";
+      }
       this.setLookupState(
         false,
-        getLookupResultMessage(result.record.word, result.cacheHit, result.record.source.aiFallbackUsed)
+        getLookupResultMessage(
+          result.record.word,
+          result.cacheHit,
+          result.record.source.aiFallbackUsed,
+          options.forceRefresh
+        )
       );
     } catch (error) {
       console.error(error);
@@ -390,7 +418,9 @@ class WordAudioPlayerView extends ItemView {
     this.isLookupActive = isActive;
     this.lookupInputEl.disabled = isActive;
     this.lookupButtonEl.disabled = isActive;
+    this.refreshButtonEl.disabled = isActive;
     this.lookupButtonEl.setText(isActive ? "..." : "Lookup");
+    this.refreshButtonEl.setText(isActive ? "..." : "Refresh");
     this.lookupStatusEl.setText(status);
   }
 

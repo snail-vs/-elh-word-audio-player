@@ -323,6 +323,7 @@ Completed:
 - IndexedDB-backed cache behind `WordLookupRecordStore`.
 - Lookup pipeline with injectable `fetchWord` and `generateCard`.
 - Sidebar lookup UI with word input, Lookup button, loading state, cache-hit status, and automatic list reload.
+- Sidebar Refresh button that bypasses cache and regenerates the card.
 - Optional AI generation settings and OpenAI-compatible chat completions client.
 - AI failure fallback to base dictionary cards.
 - Build verification with `npm run build`.
@@ -335,6 +336,7 @@ Current known behavior:
 - Existing cache records are not regenerated when AI settings change.
 - Existing generated Markdown is replaced by word/context marker instead of duplicated.
 - If AI generation fails after Youdao succeeds, the plugin writes a base dictionary card and records fallback metadata.
+- Refresh bypasses cache and overwrites the IndexedDB record and Markdown block.
 
 ## Completed Execution Plan
 
@@ -479,13 +481,6 @@ Status: Partial. `npm run build` passes. Lookup/cache/write/playback have been m
 
 ## Todo
 
-### P0: Regenerate and Refresh
-
-- Add `forceRefresh?: boolean` to `lookupWordCard`.
-- Add sidebar Refresh button.
-- Add command palette refresh command.
-- Refresh should bypass cache, refetch data, regenerate AI card if enabled, update IndexedDB, and replace the Markdown block.
-
 ### P1: Context Input
 
 - Add context textarea to the sidebar.
@@ -510,6 +505,7 @@ Status: Partial. `npm run build` passes. Lookup/cache/write/playback have been m
 - Add delete one word cache action.
 - Add recent cached word list if useful.
 - Add schema migration policy.
+- Add command palette refresh command if still useful after sidebar Refresh.
 
 ### P2: AI Prompt Tuning
 

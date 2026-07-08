@@ -16,6 +16,7 @@ export interface LookupWordCardOptions {
   getAiModel?: () => string | undefined;
   context?: string;
   contextHash?: string;
+  forceRefresh?: boolean;
   now?: () => number;
 }
 
@@ -27,7 +28,7 @@ export interface LookupWordCardResult {
 export async function lookupWordCard(word: string, options: LookupWordCardOptions): Promise<LookupWordCardResult> {
   const normalizedWord = normalizeLookupWord(word);
   const contextHash = normalizeContextHash(options.contextHash || DEFAULT_CONTEXT_HASH);
-  const cachedRecord = await options.store.get(normalizedWord, contextHash);
+  const cachedRecord = options.forceRefresh ? null : await options.store.get(normalizedWord, contextHash);
 
   if (cachedRecord) {
     return {
