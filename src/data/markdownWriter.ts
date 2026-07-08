@@ -39,7 +39,7 @@ export function upsertWordCardMarkdown(
 export function extractWordCardBlocks(markdown: string): WordCardBlock[] {
   const blocks: WordCardBlock[] = [];
   const blockPattern =
-    /<!--\s*elh-word-card:start\s+([^\s]+)\s+([^\s]+)\s*-->[\s\S]*?<!--\s*elh-word-card:end\s+\1\s+\2\s*-->/g;
+    /<div\s+elh-word-card:start\s+([^\s>]+)\s+([^\s>]+)\s*>[\s\S]*?<div\s+elh-word-card:end\s+\1\s+\2\s*><\/div>/g;
 
   for (const match of markdown.matchAll(blockPattern)) {
     const blockMarkdown = match[0];
@@ -62,8 +62,8 @@ function findWordCardBlockRange(
   markerWord: string,
   markerContext: string
 ): { start: number; end: number } | null {
-  const startMarker = `<!-- elh-word-card:start ${markerWord} ${markerContext} -->`;
-  const endMarker = `<!-- elh-word-card:end ${markerWord} ${markerContext} -->`;
+  const startMarker = `<div elh-word-card:start ${markerWord} ${markerContext}>`;
+  const endMarker = `<div elh-word-card:end ${markerWord} ${markerContext}></div>`;
   const start = markdown.indexOf(startMarker);
   if (start === -1) return null;
 

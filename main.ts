@@ -1,18 +1,25 @@
 import {
   App,
   ItemView,
+  Modal,
   Notice,
   Plugin,
   PluginSettingTab,
   Setting,
+  TextComponent,
   TFile,
   WorkspaceLeaf
 } from "obsidian";
+
+import { createBaseWordCardFromYoudao, serializeWordCardToMarkdown } from "./src/data/markdownSerializer";
+import { writeWordCardToVault } from "./src/data/vaultMarkdownWriter";
+import { lookupYoudaoWord } from "./src/data/youdaoClient";
 
 const VIEW_TYPE_WORD_PLAYER = "elh-word-audio-player-view";
 
 interface WordPlayerSettings {
   sourceFile: string;
+  targetWordFile: string;
   listLoopCount: number;
   wordLoopCount: number;
 }
@@ -30,6 +37,7 @@ interface WordEntry {
 
 const DEFAULT_SETTINGS: WordPlayerSettings = {
   sourceFile: "reading/单词记忆.md",
+  targetWordFile: "reading/单词记忆.md",
   listLoopCount: 2,
   wordLoopCount: 5
 };
@@ -53,6 +61,12 @@ export default class WordAudioPlayerPlugin extends Plugin {
       id: "open-word-audio-player",
       name: "Open word audio player",
       callback: () => this.activateView()
+    });
+
+    this.addCommand({
+      id: "lookup-youdao-word-card",
+      name: "Lookup word and write card",
+      callback: () => this.lookupWordFromPrompt()
     });
 
     this.addSettingTab(new WordAudioPlayerSettingTab(this.app, this));
@@ -81,6 +95,96 @@ export default class WordAudioPlayerPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  private async lookupWordFromPrompt() {
+    const normalizedWord = await new WordLookupModal(this.app).openAndGetValue();
+
+    if (!normalizedWord) return;
+
+    try {
+      new Notice(`Looking up ${normalizedWord}...`);
+      const parsed = await lookupYoudaoWord(normalizedWord);
+      const card = createBaseWordCardFromYoudao(parsed);
+      const markdown = serializeWordCardToMarkdown(card);
+
+      await writeWordCardToVault(this.app, this.settings.targetWordFile, markdown, card.word);
+      new Notice(`Word card written: ${card.word}`);
+      await this.reloadWordPlayerViews();
+    } catch (error) {
+      console.error(error);
+      new Notice(`Word lookup failed: ${normalizedWord}`);
+    }
+  }
+
+  private async reloadWordPlayerViews() {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_WORD_PLAYER);
+
+    await Promise.all(
+      leaves.map(async (leaf) => {
+        const view = leaf.view;
+        if (view instanceof WordAudioPlayerView) {
+          await view.reload();
+        }
+      })
+    );
+  }
+}
+
+class WordLookupModal extends Modal {
+  private resolveValue: (value: string | null) => void = () => undefined;
+  private textComponent: TextComponent;
+  private submitted = false;
+
+  openAndGetValue(): Promise<string | null> {
+    return new Promise((resolve) => {
+      this.resolveValue = resolve;
+      this.open();
+    });
+  }
+
+  onOpen() {
+    this.setTitle("Lookup word");
+    this.contentEl.empty();
+
+    this.textComponent = new TextComponent(this.contentEl)
+      .setPlaceholder("maintenance");
+
+    this.textComponent.inputEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        this.submit();
+      }
+    });
+
+    const actionsEl = this.contentEl.createDiv({ cls: "elh-word-lookup-modal__actions" });
+
+    actionsEl.createEl("button", { text: "Cancel", attr: { type: "button" } }, (button) => {
+      button.onclick = () => this.close();
+    });
+
+    actionsEl.createEl("button", { text: "Lookup", cls: "mod-cta", attr: { type: "button" } }, (button) => {
+      button.onclick = () => this.submit();
+    });
+
+    window.setTimeout(() => this.textComponent.inputEl.focus(), 0);
+  }
+
+  onClose() {
+    this.contentEl.empty();
+
+    if (!this.submitted) {
+      this.resolveValue(null);
+    }
+  }
+
+  private submit() {
+    const value = this.textComponent.getValue().trim();
+    if (!value) return;
+
+    this.submitted = true;
+    this.resolveValue(value);
+    this.close();
   }
 }
 
@@ -164,7 +268,7 @@ class WordAudioPlayerView extends ItemView {
     this.listEl = root.createDiv({ cls: "elh-word-player__list" });
   }
 
-  private async reload() {
+  async reload() {
     const sourceFile = this.getSourceFile();
 
     if (!sourceFile) {
@@ -361,6 +465,19 @@ class WordAudioPlayerSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.sourceFile)
           .onChange(async (value) => {
             this.plugin.settings.sourceFile = value.trim() || DEFAULT_SETTINGS.sourceFile;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Target word file")
+      .setDesc("Vault-relative markdown path where generated lookup cards are written.")
+      .addText((text) => {
+        text
+          .setPlaceholder(DEFAULT_SETTINGS.targetWordFile)
+          .setValue(this.plugin.settings.targetWordFile)
+          .onChange(async (value) => {
+            this.plugin.settings.targetWordFile = value.trim() || DEFAULT_SETTINGS.targetWordFile;
             await this.plugin.saveSettings();
           });
       });

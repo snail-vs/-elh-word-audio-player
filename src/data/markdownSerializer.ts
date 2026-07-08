@@ -25,8 +25,9 @@ export function serializeWordCardToMarkdown(card: WordCardData, contextHash = DE
   const markerContext = normalizeMarkerPart(contextHash || DEFAULT_CONTEXT_HASH);
   const lines: string[] = [];
 
-  lines.push(`<!-- elh-word-card:start ${markerWord} ${markerContext} -->`);
+  lines.push(`<div elh-word-card:start ${markerWord} ${markerContext}>`);
   lines.push(`<!-- elh-word-card:data ${serializeEmbeddedWordCardPayload(card, markerContext)} -->`);
+  lines.push("</div>");
   lines.push(`## ${card.word}`);
   lines.push(...serializeSyllableSummary(card));
   lines.push(...serializeFullPhonetic(card));
@@ -37,7 +38,7 @@ export function serializeWordCardToMarkdown(card: WordCardData, contextHash = DE
   lines.push(...serializeExample(card));
   lines.push(...serializeMeaningDistribution(card));
   lines.push(...serializeAudio(card));
-  lines.push(`<!-- elh-word-card:end ${markerWord} ${markerContext} -->`);
+  lines.push(`<div elh-word-card:end ${markerWord} ${markerContext}></div>`);
 
   return trimBlankLines(lines).join("\n") + "\n";
 }
