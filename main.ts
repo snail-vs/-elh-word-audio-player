@@ -11,6 +11,7 @@ import {
   WorkspaceLeaf
 } from "obsidian";
 
+import { generateAiWordCard } from "./src/data/aiCardGenerator";
 import { writeWordCardToVault } from "./src/data/vaultMarkdownWriter";
 import { fetchYoudaoWord } from "./src/data/youdaoClient";
 import { lookupWordCard } from "./src/data/wordLookupPipeline";
@@ -23,6 +24,10 @@ interface WordPlayerSettings {
   targetWordFile: string;
   listLoopCount: number;
   wordLoopCount: number;
+  enableAiGeneration: boolean;
+  aiEndpointUrl: string;
+  aiApiKey: string;
+  aiModel: string;
 }
 
 interface WordEntry {
@@ -40,7 +45,11 @@ const DEFAULT_SETTINGS: WordPlayerSettings = {
   sourceFile: "reading/单词记忆.md",
   targetWordFile: "reading/单词记忆.md",
   listLoopCount: 2,
-  wordLoopCount: 5
+  wordLoopCount: 5,
+  enableAiGeneration: false,
+  aiEndpointUrl: "https://api.openai.com/v1/chat/completions",
+  aiApiKey: "",
+  aiModel: ""
 };
 
 export default class WordAudioPlayerPlugin extends Plugin {
@@ -107,7 +116,8 @@ export default class WordAudioPlayerPlugin extends Plugin {
 
     const result = await lookupWordCard(normalizedWord, {
       store: this.wordStore,
-      fetchWord: fetchYoudaoWord
+      fetchWord: fetchYoudaoWord,
+      generateCard: this.getAiCardGenerator()
     });
 
     await writeWordCardToVault(
@@ -120,6 +130,28 @@ export default class WordAudioPlayerPlugin extends Plugin {
     await this.reloadWordPlayerViews();
 
     return result;
+  }
+
+  private getAiCardGenerator() {
+    if (
+      !this.settings.enableAiGeneration ||
+      !this.settings.aiEndpointUrl.trim() ||
+      !this.settings.aiApiKey.trim() ||
+      !this.settings.aiModel.trim()
+    ) {
+      return undefined;
+    }
+
+    return (fetched: Awaited<ReturnType<typeof fetchYoudaoWord>>, context?: string) =>
+      generateAiWordCard({
+        parsed: fetched.parsed,
+        context,
+        settings: {
+          endpointUrl: this.settings.aiEndpointUrl,
+          apiKey: this.settings.aiApiKey,
+          model: this.settings.aiModel
+        }
+      });
   }
 
   private async lookupWordFromPrompt() {
@@ -590,6 +622,58 @@ class WordAudioPlayerSettingTab extends PluginSettingTab {
             );
             await this.plugin.saveSettings();
           });
+      });
+
+    new Setting(containerEl)
+      .setName("Enable AI generation")
+      .setDesc("When enabled, lookup uses an OpenAI-compatible chat completion endpoint to complete syllables, meanings, and roots.")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.enableAiGeneration)
+          .onChange(async (value) => {
+            this.plugin.settings.enableAiGeneration = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("AI endpoint URL")
+      .setDesc("OpenAI-compatible chat completions endpoint.")
+      .addText((text) => {
+        text
+          .setPlaceholder(DEFAULT_SETTINGS.aiEndpointUrl)
+          .setValue(this.plugin.settings.aiEndpointUrl)
+          .onChange(async (value) => {
+            this.plugin.settings.aiEndpointUrl = value.trim() || DEFAULT_SETTINGS.aiEndpointUrl;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("AI model")
+      .setDesc("Model name sent to the configured endpoint.")
+      .addText((text) => {
+        text
+          .setPlaceholder("model name")
+          .setValue(this.plugin.settings.aiModel)
+          .onChange(async (value) => {
+            this.plugin.settings.aiModel = value.trim();
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("AI API key")
+      .setDesc("Stored in Obsidian plugin data on this device.")
+      .addText((text) => {
+        text
+          .setPlaceholder("sk-...")
+          .setValue(this.plugin.settings.aiApiKey)
+          .onChange(async (value) => {
+            this.plugin.settings.aiApiKey = value.trim();
+            await this.plugin.saveSettings();
+          });
+        text.inputEl.type = "password";
       });
   }
 }

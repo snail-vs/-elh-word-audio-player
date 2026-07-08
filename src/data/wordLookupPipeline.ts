@@ -5,13 +5,14 @@ import {
   normalizeLookupWord,
   WordLookupRecordStore
 } from "./wordLookupStore";
-import { WORD_CARD_SCHEMA_VERSION, WordLookupFetchResult, WordLookupRecord } from "./wordTypes";
+import { WORD_CARD_SCHEMA_VERSION, WordCardData, WordLookupFetchResult, WordLookupRecord } from "./wordTypes";
 
 const DEFAULT_CONTEXT_HASH = "default";
 
 export interface LookupWordCardOptions {
   store: WordLookupRecordStore;
   fetchWord: (word: string) => Promise<WordLookupFetchResult>;
+  generateCard?: (fetched: WordLookupFetchResult, context?: string) => Promise<WordCardData>;
   context?: string;
   contextHash?: string;
   now?: () => number;
@@ -35,7 +36,9 @@ export async function lookupWordCard(word: string, options: LookupWordCardOption
   }
 
   const fetched = await options.fetchWord(normalizedWord);
-  const card = createBaseWordCardFromYoudao(fetched.parsed);
+  const card = options.generateCard
+    ? await options.generateCard(fetched, options.context)
+    : createBaseWordCardFromYoudao(fetched.parsed);
   const markdown = serializeWordCardToMarkdown(card, contextHash);
   const timestamp = options.now?.() ?? Date.now();
 
