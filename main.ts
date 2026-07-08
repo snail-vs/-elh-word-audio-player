@@ -110,7 +110,7 @@ export default class WordAudioPlayerPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
-  async lookupAndWriteWordCard(word: string, options: { forceRefresh?: boolean } = {}) {
+  async lookupAndWriteWordCard(word: string, options: { context?: string; forceRefresh?: boolean } = {}) {
     const normalizedWord = word.trim();
     if (!normalizedWord) return null;
 
@@ -119,6 +119,7 @@ export default class WordAudioPlayerPlugin extends Plugin {
       fetchWord: fetchYoudaoWord,
       generateCard: this.getAiCardGenerator(),
       getAiModel: () => this.settings.aiModel.trim() || undefined,
+      context: options.context,
       forceRefresh: options.forceRefresh
     });
 
@@ -283,6 +284,7 @@ class WordAudioPlayerView extends ItemView {
   private countEl: HTMLElement;
   private progressEl: HTMLElement;
   private lookupInputEl: HTMLInputElement;
+  private contextInputEl: HTMLTextAreaElement;
   private lookupButtonEl: HTMLButtonElement;
   private refreshButtonEl: HTMLButtonElement;
   private lookupStatusEl: HTMLElement;
@@ -346,6 +348,14 @@ class WordAudioPlayerView extends ItemView {
     });
     this.refreshButtonEl.onclick = () => this.lookupFromSidebar({ forceRefresh: true });
 
+    this.contextInputEl = root.createEl("textarea", {
+      cls: "elh-word-player__context",
+      attr: {
+        placeholder: "Context sentence or domain (optional)",
+        "aria-label": "Lookup context"
+      }
+    });
+
     this.lookupStatusEl = root.createDiv({ cls: "elh-word-player__lookup-status" });
 
     const toolbarEl = root.createDiv({ cls: "elh-word-player__toolbar" });
@@ -387,12 +397,16 @@ class WordAudioPlayerView extends ItemView {
     if (this.isLookupActive) return;
 
     const word = this.lookupInputEl.value.trim();
+    const context = this.contextInputEl.value.trim();
     if (!word) return;
 
     this.setLookupState(true, `${options.forceRefresh ? "Refreshing" : "Looking up"} ${word}...`);
 
     try {
-      const result = await this.plugin.lookupAndWriteWordCard(word, options);
+      const result = await this.plugin.lookupAndWriteWordCard(word, {
+        ...options,
+        context: context || undefined
+      });
       if (!result) return;
 
       if (!options.forceRefresh) {
@@ -417,6 +431,7 @@ class WordAudioPlayerView extends ItemView {
   private setLookupState(isActive: boolean, status: string) {
     this.isLookupActive = isActive;
     this.lookupInputEl.disabled = isActive;
+    this.contextInputEl.disabled = isActive;
     this.lookupButtonEl.disabled = isActive;
     this.refreshButtonEl.disabled = isActive;
     this.lookupButtonEl.setText(isActive ? "..." : "Lookup");

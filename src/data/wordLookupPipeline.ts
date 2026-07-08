@@ -1,5 +1,6 @@
 import { createBaseWordCardFromYoudao, serializeWordCardToMarkdown } from "./markdownSerializer";
 import {
+  createContextHash,
   createWordLookupKey,
   normalizeContextHash,
   normalizeLookupWord,
@@ -27,10 +28,12 @@ export interface LookupWordCardResult {
 
 export async function lookupWordCard(word: string, options: LookupWordCardOptions): Promise<LookupWordCardResult> {
   const normalizedWord = normalizeLookupWord(word);
-  const contextHash = normalizeContextHash(options.contextHash || DEFAULT_CONTEXT_HASH);
-  const cachedRecord = options.forceRefresh ? null : await options.store.get(normalizedWord, contextHash);
+  const context = options.context?.trim() || undefined;
+  const cardContextHash = normalizeContextHash(options.contextHash || createContextHash(context));
+  const recordContextHash = DEFAULT_CONTEXT_HASH;
+  const cachedRecord = await options.store.get(normalizedWord, recordContextHash);
 
-  if (cachedRecord) {
+  if (cachedRecord && !options.forceRefresh && (!context || hasContextEntry(cachedRecord.card, cardContextHash))) {
     return {
       record: cachedRecord,
       cacheHit: true
@@ -38,15 +41,18 @@ export async function lookupWordCard(word: string, options: LookupWordCardOption
   }
 
   const fetched = await options.fetchWord(normalizedWord);
-  const generated = await generateCardWithFallback(fetched, options);
-  const card = generated.card;
-  const markdown = serializeWordCardToMarkdown(card, contextHash);
+  const generated = await generateCardWithFallback(fetched, { ...options, context });
   const timestamp = options.now?.() ?? Date.now();
+  const contextEntry = context
+    ? createContextEntry(generated.card, context, cardContextHash, timestamp, cachedRecord?.card)
+    : null;
+  const card = mergeWordCards(cachedRecord?.card, generated.card, contextEntry, Boolean(options.forceRefresh));
+  const markdown = serializeWordCardToMarkdown(card, recordContextHash);
 
   const record: WordLookupRecord = {
     word: normalizeLookupWord(card.word),
-    context: options.context,
-    contextHash,
+    context,
+    contextHash: recordContextHash,
     card,
     source: {
       youdaoRaw: fetched.raw,
@@ -72,6 +78,64 @@ export async function lookupWordCard(word: string, options: LookupWordCardOption
 
 export function getLookupRecordKey(record: Pick<WordLookupRecord, "word" | "contextHash">): string {
   return createWordLookupKey(record.word, record.contextHash);
+}
+
+function hasContextEntry(card: WordCardData, contextHash: string): boolean {
+  return card.contexts.some((entry) => entry.contextHash === contextHash);
+}
+
+function createContextEntry(
+  generatedCard: WordCardData,
+  context: string,
+  contextHash: string,
+  timestamp: number,
+  existingCard?: WordCardData
+) {
+  const existingEntry = existingCard?.contexts.find((entry) => entry.contextHash === contextHash);
+
+  return {
+    contextHash,
+    context,
+    contextMeaning: generatedCard.contextMeaning,
+    example: generatedCard.example,
+    createdAt: existingEntry?.createdAt ?? timestamp,
+    updatedAt: timestamp
+  };
+}
+
+function mergeWordCards(
+  existingCard: WordCardData | undefined,
+  generatedCard: WordCardData,
+  contextEntry: WordCardData["contexts"][number] | null,
+  refreshBase: boolean
+): WordCardData {
+  const baseCard = !existingCard || refreshBase ? generatedCard : existingCard;
+  const existingContexts = existingCard?.contexts ?? [];
+  const generatedContexts = generatedCard.contexts ?? [];
+  const contexts = mergeContextEntries(existingContexts, generatedContexts, contextEntry);
+
+  return {
+    ...baseCard,
+    contexts
+  };
+}
+
+function mergeContextEntries(
+  existingContexts: WordCardData["contexts"],
+  generatedContexts: WordCardData["contexts"],
+  contextEntry: WordCardData["contexts"][number] | null
+): WordCardData["contexts"] {
+  const contextsByHash = new Map<string, WordCardData["contexts"][number]>();
+
+  [...existingContexts, ...generatedContexts].forEach((entry) => {
+    contextsByHash.set(entry.contextHash, entry);
+  });
+
+  if (contextEntry) {
+    contextsByHash.set(contextEntry.contextHash, contextEntry);
+  }
+
+  return Array.from(contextsByHash.values()).sort((a, b) => a.createdAt - b.createdAt);
 }
 
 async function generateCardWithFallback(

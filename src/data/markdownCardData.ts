@@ -21,12 +21,24 @@ export function parseEmbeddedWordCardPayload(markdown: string): EmbeddedWordCard
   if (!match?.[1]) return null;
 
   try {
-    const payload = JSON.parse(decodeBase64Url(match[1])) as unknown;
+    const payload = normalizeEmbeddedWordCardPayload(JSON.parse(decodeBase64Url(match[1])) as unknown);
     return isEmbeddedWordCardPayload(payload) ? payload : null;
   } catch (error) {
     console.error("Failed to parse embedded word card payload.", error);
     return null;
   }
+}
+
+function normalizeEmbeddedWordCardPayload(value: unknown): unknown {
+  if (!isRecord(value) || !isRecord(value.card)) return value;
+
+  return {
+    ...value,
+    card: {
+      ...value.card,
+      contexts: Array.isArray(value.card.contexts) ? value.card.contexts : []
+    }
+  };
 }
 
 function isEmbeddedWordCardPayload(value: unknown): value is EmbeddedWordCardPayload {
@@ -52,6 +64,7 @@ function isWordCardData(value: unknown): value is WordCardData {
     Array.isArray(value.coreMeanings) &&
     typeof value.contextMeaning === "string" &&
     typeof value.example === "string" &&
+    Array.isArray(value.contexts) &&
     typeof value.roots === "string" &&
     Array.isArray(value.meaningDistribution) &&
     typeof value.audioSrc === "string"

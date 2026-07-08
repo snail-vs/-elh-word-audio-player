@@ -15,9 +15,19 @@ export interface WordCardData {
   coreMeanings: string[];
   contextMeaning: string;
   example: string;
+  contexts: WordContextEntry[];
   roots: string;
   meaningDistribution: MeaningDistributionItem[];
   audioSrc: string;
+}
+
+export interface WordContextEntry {
+  contextHash: string;
+  context: string;
+  contextMeaning: string;
+  example: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface WordLookupSource {

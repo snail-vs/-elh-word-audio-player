@@ -111,11 +111,13 @@ function extractMessageContent(response: ChatCompletionResponse): string {
 
 function parseWordCardData(content: string): WordCardData {
   const parsed = JSON.parse(content) as unknown;
-  if (!isWordCardData(parsed)) {
+  const normalized = normalizeAiWordCardData(parsed);
+
+  if (!isWordCardData(normalized)) {
     throw new Error("AI response did not match WordCardData.");
   }
 
-  return parsed;
+  return normalized;
 }
 
 function mergeWithTrustedDictionaryFields(aiCard: WordCardData, baseCard: WordCardData): WordCardData {
@@ -142,11 +144,21 @@ function isWordCardData(value: unknown): value is WordCardData {
     isStringArray(value.coreMeanings) &&
     typeof value.contextMeaning === "string" &&
     typeof value.example === "string" &&
+    Array.isArray(value.contexts) &&
     typeof value.roots === "string" &&
     Array.isArray(value.meaningDistribution) &&
     value.meaningDistribution.every(isMeaningDistributionItem) &&
     typeof value.audioSrc === "string"
   );
+}
+
+function normalizeAiWordCardData(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+
+  return {
+    ...value,
+    contexts: Array.isArray(value.contexts) ? value.contexts : []
+  };
 }
 
 function isMeaningDistributionItem(value: unknown): value is { proportion: string; tr: string } {

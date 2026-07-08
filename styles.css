@@ -34,6 +34,15 @@
   padding: 0 10px;
 }
 
+.elh-word-player__context {
+  width: 100%;
+  min-height: 54px;
+  max-height: 96px;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .elh-word-player__lookup-status {
   min-height: 16px;
   overflow: hidden;

@@ -155,9 +155,19 @@ interface WordCardData {
   coreMeanings: string[];
   contextMeaning: string;
   example: string;
+  contexts: WordContextEntry[];
   roots: string;
   meaningDistribution: MeaningDistributionItem[];
   audioSrc: string;
+}
+
+interface WordContextEntry {
+  contextHash: string;
+  context: string;
+  contextMeaning: string;
+  example: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 interface MeaningDistributionItem {
@@ -166,7 +176,7 @@ interface MeaningDistributionItem {
 }
 ```
 
-`contextHash` should be stable. A simple first version can use normalized lowercase context text plus the word. If no context is supplied, use a constant such as `default`.
+The main lookup record is stored by word with `contextHash: "default"`. User-provided contexts are stored inside `WordCardData.contexts`, each with its own stable `contextHash`. This keeps one vocabulary card per word while preserving multiple contextual uses.
 
 ## Proposed File Structure
 
@@ -256,14 +266,14 @@ Write generated cards with stable block markers so repeated lookups update exist
 1. 维护/保养
 2. 保持/维持
 3. 赡养费/抚养费
-**语境含义**：在运维/技术语境中主要指系统维护与保养。
-**例句**：*Proxmox VE provides a web GUI for simplifying system maintenance tasks like backup and updates.*
+**语境**：
+1. *Proxmox VE provides a web GUI for simplifying system maintenance tasks like backup and updates.* — 在运维/技术语境中主要指系统维护与保养。
 **含义分布**：维护 64.1%，维修 28.4%
 **发音**：<audio src="https://dict.youdao.com/dictvoice?type=1&audio=maintenance" controls></audio>
 <div elh-word-card:end maintenance default></div>
 ```
 
-The marker includes the context hash. The hidden `elh-word-card:data` payload stores `schemaVersion`, `contextHash`, and the full `WordCardData`, so IndexedDB can be restored from Markdown without parsing human-facing prose.
+The card marker uses the word-level `default` context. Per-context hashes live in the embedded `WordCardData.contexts` list. The hidden `elh-word-card:data` payload stores `schemaVersion`, `contextHash`, and the full `WordCardData`, so IndexedDB can be restored from Markdown without parsing human-facing prose.
 
 ## UI Plan
 
@@ -274,7 +284,7 @@ The side view should contain:
 - Cache status indicator.
 - Error or loading state.
 - Existing playback controls and word list.
-- Optional context input. TODO.
+- Optional context input.
 - Current generated card preview. TODO.
 
 Lookup behavior:
@@ -324,6 +334,7 @@ Completed:
 - Lookup pipeline with injectable `fetchWord` and `generateCard`.
 - Sidebar lookup UI with word input, Lookup button, loading state, cache-hit status, and automatic list reload.
 - Sidebar Refresh button that bypasses cache and regenerates the card.
+- Sidebar context input that creates distinct context hashes for the same word.
 - Optional AI generation settings and OpenAI-compatible chat completions client.
 - AI failure fallback to base dictionary cards.
 - Build verification with `npm run build`.
@@ -337,6 +348,8 @@ Current known behavior:
 - Existing generated Markdown is replaced by word/context marker instead of duplicated.
 - If AI generation fails after Youdao succeeds, the plugin writes a base dictionary card and records fallback metadata.
 - Refresh bypasses cache and overwrites the IndexedDB record and Markdown block.
+- Context text is included in the cache record, AI generation prompt, and `WordCardData.contexts`.
+- Multiple contexts for the same word update one card instead of creating duplicate word cards.
 
 ## Completed Execution Plan
 
@@ -480,13 +493,6 @@ Success criteria:
 Status: Partial. `npm run build` passes. Lookup/cache/write/playback have been manually exercised. AI needs real endpoint testing.
 
 ## Todo
-
-### P1: Context Input
-
-- Add context textarea to the sidebar.
-- Pass context into `lookupWordCard`.
-- Use stable context hash in cache key and Markdown markers.
-- Include context in AI generation.
 
 ### P1: Playback Parser From Embedded JSON
 

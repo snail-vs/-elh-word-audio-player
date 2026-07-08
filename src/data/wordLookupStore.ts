@@ -21,6 +21,13 @@ export function normalizeContextHash(contextHash = DEFAULT_CONTEXT_HASH): string
   return contextHash.trim().toLowerCase().replace(/\s+/g, "-") || DEFAULT_CONTEXT_HASH;
 }
 
+export function createContextHash(context?: string): string {
+  const normalizedContext = context?.trim().replace(/\s+/g, " ");
+  if (!normalizedContext) return DEFAULT_CONTEXT_HASH;
+
+  return `ctx-${hashString(normalizedContext).toString(36)}`;
+}
+
 export function createWordLookupKey(word: string, contextHash = DEFAULT_CONTEXT_HASH): string {
   return `${normalizeLookupWord(word)}::${normalizeContextHash(contextHash)}`;
 }
@@ -38,7 +45,7 @@ export class IndexedDbWordLookupRecordStore implements WordLookupRecordStore {
       return null;
     }
 
-    return record;
+    return normalizeRecord(record);
   }
 
   async put(record: WordLookupRecord): Promise<void> {
@@ -127,4 +134,24 @@ function idbRequest<T = unknown>(request: IDBRequest<T>): Promise<T> {
 
 function getRecordKey(record: WordLookupRecord): string {
   return createWordLookupKey(record.word, record.contextHash);
+}
+
+function normalizeRecord(record: WordLookupRecord): WordLookupRecord {
+  return {
+    ...record,
+    card: {
+      ...record.card,
+      contexts: Array.isArray(record.card.contexts) ? record.card.contexts : []
+    }
+  };
+}
+
+function hashString(value: string): number {
+  let hash = 5381;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(index);
+  }
+
+  return hash >>> 0;
 }

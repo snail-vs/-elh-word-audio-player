@@ -14,6 +14,7 @@ export function createBaseWordCardFromYoudao(parsed: ParsedYoudaoData): WordCard
     coreMeanings: [],
     contextMeaning: "",
     example: parsed.exampleCandidates[0]?.sentence ?? "",
+    contexts: [],
     roots: parsed.etymologyCandidates.join("；"),
     meaningDistribution: parsed.meaningDistribution,
     audioSrc: parsed.audioSrc
@@ -34,8 +35,11 @@ export function serializeWordCardToMarkdown(card: WordCardData, contextHash = DE
   lines.push(...serializeBasicExplanations(card));
   lines.push(...serializeSingleLineField("词根", card.roots));
   lines.push(...serializeNumberedSection("核心含义", card.coreMeanings));
-  lines.push(...serializeSingleLineField("语境含义", card.contextMeaning));
-  lines.push(...serializeExample(card));
+  lines.push(...serializeContexts(card));
+  if (getCardContexts(card).length === 0) {
+    lines.push(...serializeSingleLineField("语境含义", card.contextMeaning));
+    lines.push(...serializeExample(card));
+  }
   lines.push(...serializeMeaningDistribution(card));
   lines.push(...serializeAudio(card));
   lines.push(`<div elh-word-card:end ${markerWord} ${markerContext}></div>`);
@@ -89,6 +93,30 @@ function serializeExample(card: WordCardData): string[] {
   if (!card.example.trim()) return [];
 
   return [`**例句**：*${card.example.trim()}*`];
+}
+
+function serializeContexts(card: WordCardData): string[] {
+  const contexts = getCardContexts(card);
+  if (contexts.length === 0) return [];
+
+  const lines = ["**语境**："];
+
+  contexts.forEach((entry, index) => {
+    const contextText = entry.context ? `*${entry.context}*` : "*默认语境*";
+    const meaningText = entry.contextMeaning || "待补充";
+    const exampleText = entry.example ? `  例句：*${entry.example}*` : "";
+
+    lines.push(`${index + 1}. ${contextText} — ${meaningText}`);
+    if (exampleText) {
+      lines.push(exampleText);
+    }
+  });
+
+  return lines;
+}
+
+function getCardContexts(card: WordCardData) {
+  return Array.isArray(card.contexts) ? card.contexts : [];
 }
 
 function serializeMeaningDistribution(card: WordCardData): string[] {
