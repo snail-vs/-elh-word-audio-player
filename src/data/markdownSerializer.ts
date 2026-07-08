@@ -1,12 +1,7 @@
-import { ParsedYoudaoData, WORD_CARD_SCHEMA_VERSION, WordCardData } from "./wordTypes";
+import { serializeEmbeddedWordCardPayload } from "./markdownCardData";
+import { ParsedYoudaoData, WordCardData } from "./wordTypes";
 
 const DEFAULT_CONTEXT_HASH = "default";
-
-interface EmbeddedWordCardPayload {
-  schemaVersion: number;
-  contextHash: string;
-  card: WordCardData;
-}
 
 export function createBaseWordCardFromYoudao(parsed: ParsedYoudaoData): WordCardData {
   return {
@@ -45,16 +40,6 @@ export function serializeWordCardToMarkdown(card: WordCardData, contextHash = DE
   lines.push(`<!-- elh-word-card:end ${markerWord} ${markerContext} -->`);
 
   return trimBlankLines(lines).join("\n") + "\n";
-}
-
-function serializeEmbeddedWordCardPayload(card: WordCardData, contextHash: string): string {
-  const payload: EmbeddedWordCardPayload = {
-    schemaVersion: WORD_CARD_SCHEMA_VERSION,
-    contextHash,
-    card
-  };
-
-  return encodeBase64Url(JSON.stringify(payload));
 }
 
 function serializeSyllableSummary(card: WordCardData): string[] {
@@ -141,31 +126,6 @@ function escapeHtmlAttribute(value: string): string {
 
 function normalizeMarkerPart(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, "-") || DEFAULT_CONTEXT_HASH;
-}
-
-function encodeBase64Url(value: string): string {
-  return encodeBase64(value)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
-
-function encodeBase64(value: string): string {
-  const bufferConstructor = getBufferConstructor();
-
-  if (bufferConstructor) {
-    return bufferConstructor.from(value, "utf8").toString("base64");
-  }
-
-  return btoa(unescape(encodeURIComponent(value)));
-}
-
-function getBufferConstructor(): { from(value: string, encoding: "utf8"): { toString(encoding: "base64"): string } } | null {
-  const globalValue = globalThis as typeof globalThis & {
-    Buffer?: { from(value: string, encoding: "utf8"): { toString(encoding: "base64"): string } };
-  };
-
-  return globalValue.Buffer ?? null;
 }
 
 function trimBlankLines(lines: string[]): string[] {
