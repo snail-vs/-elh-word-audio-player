@@ -95,7 +95,7 @@ function createContextEntry(
 
   return {
     contextHash,
-    context,
+    context: createContextExcerpt(context),
     contextMeaning: generatedCard.contextMeaning,
     example: generatedCard.example,
     createdAt: existingEntry?.createdAt ?? timestamp,
@@ -111,8 +111,7 @@ function mergeWordCards(
 ): WordCardData {
   const baseCard = !existingCard || refreshBase ? generatedCard : existingCard;
   const existingContexts = existingCard?.contexts ?? [];
-  const generatedContexts = generatedCard.contexts ?? [];
-  const contexts = mergeContextEntries(existingContexts, generatedContexts, contextEntry);
+  const contexts = mergeContextEntries(existingContexts, contextEntry);
 
   return {
     ...baseCard,
@@ -122,12 +121,11 @@ function mergeWordCards(
 
 function mergeContextEntries(
   existingContexts: WordCardData["contexts"],
-  generatedContexts: WordCardData["contexts"],
   contextEntry: WordCardData["contexts"][number] | null
 ): WordCardData["contexts"] {
   const contextsByHash = new Map<string, WordCardData["contexts"][number]>();
 
-  [...existingContexts, ...generatedContexts].forEach((entry) => {
+  existingContexts.forEach((entry) => {
     contextsByHash.set(entry.contextHash, entry);
   });
 
@@ -136,6 +134,17 @@ function mergeContextEntries(
   }
 
   return Array.from(contextsByHash.values()).sort((a, b) => a.createdAt - b.createdAt);
+}
+
+function createContextExcerpt(context: string): string {
+  const normalized = context.replace(/\s+/g, " ").trim();
+  const maxLength = 120;
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 1)}…`;
 }
 
 async function generateCardWithFallback(

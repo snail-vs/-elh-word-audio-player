@@ -176,7 +176,7 @@ interface MeaningDistributionItem {
 }
 ```
 
-The main lookup record is stored by word with `contextHash: "default"`. User-provided contexts are stored inside `WordCardData.contexts`, each with its own stable `contextHash`. This keeps one vocabulary card per word while preserving multiple contextual uses.
+The main lookup record is stored by word with `contextHash: "default"`. User-provided contexts are stored inside `WordCardData.contexts`, each with its own stable `contextHash`. This keeps one vocabulary card per word while preserving multiple contextual uses. The full raw context may be kept on the IndexedDB record for generation/debugging, but the card stores and renders only a compact context excerpt.
 
 ## Proposed File Structure
 
@@ -350,6 +350,7 @@ Current known behavior:
 - Refresh bypasses cache and overwrites the IndexedDB record and Markdown block.
 - Context text is included in the cache record, AI generation prompt, and `WordCardData.contexts`.
 - Multiple contexts for the same word update one card instead of creating duplicate word cards.
+- Markdown context display uses compact excerpts instead of dumping the full raw context.
 
 ## Completed Execution Plan
 

@@ -74,7 +74,7 @@ function buildPrompt(parsed: ParsedYoudaoData, baseCard: WordCardData, context?:
       stressSyllableIndexes: ["number, zero-based"],
       fullPhonetic: "string",
       basicExplanations: ["string"],
-      coreMeanings: ["string, exactly 3 items when possible"],
+      coreMeanings: ["string, exactly 3 items when possible; each item must be '含义 — 用法解释'"],
       contextMeaning: "string",
       example: "string",
       roots: "string",
@@ -92,9 +92,12 @@ function buildPrompt(parsed: ParsedYoudaoData, baseCard: WordCardData, context?:
     requirements: [
       "Align spellingSyllables and phoneticSyllables by syllable count when possible.",
       "stressSyllableIndexes must refer to phoneticSyllables indexes and use zero-based numbers.",
-      "coreMeanings should be the three most central senses, not long dictionary dumps.",
-      "contextMeaning should use the supplied context if present; otherwise use the most common technical or general sense.",
-      "example should be natural and include the target word.",
+      "coreMeanings should be exactly three central senses when possible.",
+      "Each coreMeanings item must include a short explanation after an em dash, for example: '维护/保养 — 让设备、系统保持可用状态的检查、修复或更新工作'.",
+      "Do not output one-word core meanings such as '维护' or '保养' without explanation.",
+      "contextMeaning should use the supplied context if present; explain the target word's role in that context in one concise Chinese sentence.",
+      "contextMeaning must not copy or summarize the whole supplied context.",
+      "example should be one concise sentence that includes the target word. Prefer a sentence from the supplied context only if it is short and clean; otherwise create a domain-appropriate example.",
       "roots should be concise and may mention uncertainty if etymology is not clear."
     ]
   });

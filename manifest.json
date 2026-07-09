@@ -1,7 +1,7 @@
 {
   "id": "elh-word-audio-player",
   "name": "ELH Word Audio Player",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "minAppVersion": "1.5.0",
   "description": "Play vocabulary audio from a markdown word list and render each word card like synced lyrics.",
   "author": "local",
